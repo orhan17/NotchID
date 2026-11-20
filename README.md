@@ -88,7 +88,20 @@ placeholder face and a made-up name.*
 - Apple Silicon or Intel Mac with a camera (a notch is optional)
 - Xcode **Command Line Tools** (`xcode-select --install`). Full Xcode isn't needed.
 
-## Build and install
+## Install
+
+Paste in Terminal:
+
+```bash
+curl -fsSL https://github.com/samirmhsnv/NotchID/releases/latest/download/NotchID.zip -o /tmp/NotchID.zip && { pkill -x NotchID; sleep 1; rm -rf /Applications/NotchID.app; ditto -x -k /tmp/NotchID.zip /Applications && open /Applications/NotchID.app; }
+```
+
+The same line updates an installed copy. The release is a universal build (Apple Silicon and Intel)
+with an ad-hoc signature, so after each update macOS asks again for Accessibility and for Keychain
+access to the saved password. Downloaded the zip in a browser instead? Run
+`xattr -dr com.apple.quarantine /Applications/NotchID.app` once before opening it.
+
+## Build from source
 
 ```bash
 git clone <your-fork-url> NotchID
@@ -102,6 +115,13 @@ NotchID has no Dock icon. Look for the Face ID icon in the menu bar.
 
 > **Note for contributors:** the Command Line Tools SDK can't expand SwiftUI's `@State` macro.
 > Use `@StateObject` with the `Box<T>` helper in `NotchView.swift` instead.
+
+To make a release, run `./build.sh --release` and attach `build/NotchID.zip` to a GitHub release:
+
+```bash
+./build.sh --release
+gh release create v1.0.0 build/NotchID.zip --title "NotchID 1.0.0" --generate-notes
+```
 
 To regenerate the README screenshots:
 
