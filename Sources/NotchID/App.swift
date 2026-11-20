@@ -30,6 +30,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
     func applicationDidFinishLaunching(_ notification: Notification) {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         statusItem.button?.image = NSImage(systemSymbolName: "faceid", accessibilityDescription: "NotchID")
+        statusItem.autosaveName = "NotchID" // keeps the place you ⌘-drag it to
         let menu = NSMenu()
         menu.delegate = self
         statusItem.menu = menu
@@ -39,6 +40,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
 
         if !Store.shared.isEnrolled { openEnrollment() }
         else if UnlockAgent.shared.readiness != .ready { openSettings() }
+    }
+
+    /// Opening NotchID again (Finder, Spotlight, `open`) shows Settings: on a crowded menu bar the
+    /// icon can end up hidden behind the notch.
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        openSettings()
+        return false
     }
 
     // MARK: Menu
