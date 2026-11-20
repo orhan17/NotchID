@@ -38,9 +38,10 @@ swift build -c release
 assemble .build/release/NotchID
 
 # Sign with a stable local identity so Accessibility/Camera/Keychain permissions survive rebuilds.
-KC="$HOME/Library/Keychains/notchid-signing.keychain-db"
-if ./scripts/make-signing-identity.sh && security unlock-keychain -p notchid "$KC" 2>/dev/null; then
-    codesign --force --deep --sign "NotchID Local Signing" --keychain "$KC" "$APP"
+# macOS asks once per build to let `security` read the signing keychain's password (see scripts/sign.sh).
+if ./scripts/sign.sh "$APP"; then :
+elif [[ $? == 3 ]]; then
+    exit 1 # denied: an ad-hoc build would lose NotchID's permissions, so stop instead
 else
     echo "⚠️  Falling back to ad-hoc signing (permissions will need re-granting after each build)"
     codesign --force --deep --sign - "$APP"

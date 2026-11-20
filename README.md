@@ -77,9 +77,14 @@ placeholder face and a made-up name.*
   could break it. If the API is missing, NotchID still unlocks, but the animation may not be visible
   on the lock screen.
 - **Local signing.** `build.sh` creates a self-signed code-signing identity in its own keychain
-  (`scripts/make-signing-identity.sh`, the key never leaves your Mac) so Accessibility, Camera and
-  Keychain approvals survive rebuilds. If that fails it falls back to ad-hoc signing, and then you
-  have to re-allow Accessibility after every rebuild.
+  (`scripts/sign.sh`, the key never leaves your Mac) so Accessibility, Camera and Keychain approvals
+  survive rebuilds. Whoever can use that identity can sign a program that passes for NotchID and
+  reads the saved password, so it is guarded: the signing keychain has a random password, kept in
+  your login keychain where no app can read it without a macOS prompt (that entry is recreated after
+  every build, so a mistaken *Always Allow* doesn't last); and the keychain is locked again right
+  after signing. If signing fails for another
+  reason, `build.sh` falls back to ad-hoc signing, and then you have to re-allow Accessibility after
+  every rebuild.
 - The camera has to see you. It works poorly in very dark rooms or with the lid nearly closed.
 
 ## Requirements
@@ -107,6 +112,7 @@ access to the saved password. Downloaded the zip in a browser instead? Run
 git clone <your-fork-url> NotchID
 cd NotchID
 ./build.sh                       # builds build/NotchID.app (release, signed with a local identity)
+# macOS asks to let "security" use "NotchID signing keychain": click Allow (not Always Allow)
 cp -R build/NotchID.app /Applications/
 open /Applications/NotchID.app
 ```
@@ -190,7 +196,9 @@ To remove everything: choose *Remove* next to the password in Settings (or delet
 | Problem | Try this |
 | --- | --- |
 | Recognised, but the Mac doesn't unlock | Check Accessibility in *Settings → Permissions*. If it was granted to an older build, run `tccutil reset Accessibility app.notchid.NotchID` and allow it again. `~/Library/Logs/NotchID.log` shows each step. |
-| macOS asks for Keychain access | Choose *Always Allow* once. NotchID reads the password at launch so the Lock Screen never prompts. |
+| `./build.sh` asks to let *security* use "NotchID signing keychain" | Click *Allow* (enter your login password if asked). That unlocks the signing key for this build only. *Deny* stops the build. |
+| A dialog asks for the password of the "notchid-signing" keychain | Click *Cancel*. Only `build.sh` needs that keychain, and it unlocks it with the stored random password. |
+| macOS asks NotchID for Keychain access | Choose *Always Allow* once. NotchID reads the password at launch so the Lock Screen never prompts. |
 | "That isn't your Mac login password" | Use the password for your macOS user account, not your Apple Account password. |
 | Doesn't recognise me | Re-enrol in the light you normally use, use *Test recognition*, and move *Strictness* toward *Loose*. Take off sunglasses. |
 | Recognises someone else | Move *Strictness* toward *Strict* and turn on *Require a blink*. |
