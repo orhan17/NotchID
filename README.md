@@ -204,6 +204,7 @@ To remove everything: choose *Remove* next to the password in Settings (or delet
 | Recognises someone else | Move *Strictness* toward *Strict* and turn on *Require a blink*. |
 | No animation on the lock screen | macOS 27 doesn't let apps draw over the lock screen ([#8](https://github.com/samirmhsnv/NotchID/issues/8)). Unlocking still works, and NotchID plays the animation as soon as you're unlocked. *Settings* says when this applies. |
 | Camera light stays on | It turns off when the scan ends (at most about 12 s). Quit NotchID if it doesn't. |
+| The menu bar icon vanishes | A crowded menu bar hides items behind the notch. Open NotchID again (Spotlight or Finder) to get *Settings*, quit some menu bar apps, or hold ⌘ and drag the Face ID icon further right. |
 | Nothing happens on lock | The menu must say *Face ID unlock is on*. Otherwise open *Settings* to see what's missing. |
 
 ## Disclaimer
