@@ -11,7 +11,12 @@ final class UnlockAgent {
     private var poll: Timer?
     private var displayAsleep = false
     private var submitting = false
+    /// Set by the lock notification only. CGSSessionScreenIsLocked can still say "locked" for a while
+    /// after an unlock, so it may clear this flag but never set it: a stale "locked" once started scans
+    /// on the desktop and typed the password into the app in front.
     private(set) var locked = MacSession.isLocked
+    /// Both signals agree that the lock screen is up.
+    private var reallyLocked: Bool { locked && MacSession.isLocked }
     private var lastLoggedReadiness: Readiness?
 
     enum Readiness { case ready, notEnrolled, noPassword, noCamera, noAccessibility, disabled }
@@ -51,7 +56,7 @@ final class UnlockAgent {
             Task { @MainActor in
                 let me = UnlockAgent.shared
                 me.displayAsleep = false
-                me.locked = MacSession.isLocked
+                if !MacSession.isLocked { me.locked = false }
                 Log.info("display woke (locked: \(me.locked))")
                 if me.locked { me.trigger() }
             }
@@ -75,8 +80,8 @@ final class UnlockAgent {
         poll = Timer.scheduledTimer(withTimeInterval: 0.7, repeats: true) { _ in
             Task { @MainActor in
                 let me = UnlockAgent.shared
-                if !me.locked && MacSession.isLocked { me.locked = true } // missed notification
-                guard me.locked, !me.displayAsleep, me.attempt == nil,
+                if me.locked && !MacSession.isLocked { me.locked = false } // missed unlock notification
+                guard me.reallyLocked, !me.displayAsleep, me.attempt == nil,
                       Date().timeIntervalSince(me.lastAttemptEnd) > 2.5,
                       MacSession.secondsSinceAnyInput < 1.0 else { return }
                 me.trigger()
@@ -144,10 +149,16 @@ final class UnlockAgent {
                 }
             }
 
+            // `locked` follows lock/unlock notifications, and one can be missed. Ask the session itself:
+            // typing into an unlocked Mac would send the password to whatever app has focus.
+            guard self.reallyLocked else {
+                Log.info("not typing the password: the screen is not locked")
+                return true
+            }
             self.submitting = true
             defer { self.submitting = false }
             Log.info("typing password (accessibility: \(Accessibility.granted))")
-            await KeyTyper.submitPassword(password)
+            await KeyTyper.submitPassword(password, while: { self.reallyLocked })
             // Wait for macOS to confirm.
             for _ in 0..<30 where self.locked {
                 try? await Task.sleep(for: .milliseconds(100))

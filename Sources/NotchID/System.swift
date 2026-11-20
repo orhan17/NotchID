@@ -101,14 +101,19 @@ enum KeyTyper {
     private static let kReturn: CGKeyCode = 36, kDelete: CGKeyCode = 51, kA: CGKeyCode = 0, kShift: CGKeyCode = 56
 
     /// Wakes the password field, clears it, types the password and presses Return.
-    static func submitPassword(_ password: String) async {
+    /// Stops as soon as `stillLocked` says no (unlocked by hand or with Touch ID meanwhile), so the
+    /// rest of the password never lands in an app on the desktop.
+    static func submitPassword(_ password: String, while stillLocked: () -> Bool) async {
         let map = keyMap()
+        guard stillLocked() else { return }
         press(kShift, flags: .maskShift) // reveals the password field without typing anything
         try? await Task.sleep(for: .milliseconds(350))
+        guard stillLocked() else { return } // ⌘A and Delete on the desktop would wipe a document
         press(kA, flags: .maskCommand)   // select anything the user already typed…
         press(kDelete)                    // …and clear it
         try? await Task.sleep(for: .milliseconds(60))
         for ch in password {
+            guard stillLocked() else { return }
             if let (code, flags) = map[ch] {
                 press(code, flags: flags)
             } else {
@@ -117,6 +122,7 @@ enum KeyTyper {
             try? await Task.sleep(for: .milliseconds(12))
         }
         try? await Task.sleep(for: .milliseconds(60))
+        guard stillLocked() else { return }
         press(kReturn)
     }
 
