@@ -145,10 +145,14 @@ enum KeyTyper {
         }
     }
 
-    /// Character → (key code, modifiers) for the current keyboard layout.
+    /// Character → (key code, modifiers) for the layout the password field will use.
+    /// A secure text field only takes ASCII-capable input: with Russian, Greek or another non-Latin
+    /// layout selected, macOS types into the lock screen with the last Latin one (ABC, U.S., …).
+    /// Mapping with the selected layout would leave every Latin character to the Unicode fallback.
     private static func keyMap() -> [Character: (CGKeyCode, CGEventFlags)] {
         var map: [Character: (CGKeyCode, CGEventFlags)] = [:]
-        guard let source = TISCopyCurrentKeyboardLayoutInputSource()?.takeRetainedValue(),
+        guard let source = (TISCopyCurrentASCIICapableKeyboardLayoutInputSource()
+                            ?? TISCopyCurrentKeyboardLayoutInputSource())?.takeRetainedValue(),
               let ptr = TISGetInputSourceProperty(source, kTISPropertyUnicodeKeyLayoutData) else { return map }
         let data = Unmanaged<CFData>.fromOpaque(ptr).takeUnretainedValue() as Data
         let states: [(UInt32, CGEventFlags)] = [(0, []), (UInt32(shiftKey >> 8), .maskShift),
