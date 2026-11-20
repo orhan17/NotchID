@@ -18,8 +18,25 @@ final class UnlockAgent {
     /// Both signals agree that the lock screen is up.
     private var reallyLocked: Bool { locked && MacSession.isLocked }
     private var lastLoggedReadiness: Readiness?
+    /// Set when a lock went by without a scan because setup is unfinished; told once on the lock
+    /// screen and once more after the Mac is unlocked by hand, where the notch is always visible.
+    private var skippedThisLock: Readiness?
+    private var toldThisLock = false
 
-    enum Readiness { case ready, notEnrolled, noPassword, noCamera, noAccessibility, disabled }
+    enum Readiness {
+        case ready, notEnrolled, noPassword, noCamera, noAccessibility, disabled
+
+        /// What is missing, for the notch and the menu; nil when there is nothing to fix.
+        var notice: String? {
+            switch self {
+            case .ready, .disabled: return nil
+            case .notEnrolled: return "Set up Face ID in NotchID"
+            case .noPassword: return "Save your Mac password in NotchID"
+            case .noCamera: return "Allow the camera for NotchID"
+            case .noAccessibility: return "Allow Accessibility for NotchID"
+            }
+        }
+    }
 
     var readiness: Readiness {
         let store = Store.shared
@@ -38,6 +55,8 @@ final class UnlockAgent {
             Task { @MainActor in
                 let me = UnlockAgent.shared
                 me.locked = true
+                me.skippedThisLock = nil
+                me.toldThisLock = false
                 Log.info("screen locked (displayAsleep: \(me.displayAsleep))")
                 try? await Task.sleep(for: .seconds(0.8))
                 if me.locked && !me.displayAsleep { me.trigger() }
@@ -49,6 +68,11 @@ final class UnlockAgent {
                 me.locked = false
                 Log.info("screen unlocked (by NotchID: \(me.submitting))")
                 if !me.submitting { me.cancel() } // unlocked by hand → stop scanning
+                if let text = me.skippedThisLock?.notice {
+                    me.skippedThisLock = nil
+                    try? await Task.sleep(for: .seconds(0.6))
+                    await NotchController.shared.showNotice(text)
+                }
             }
         }
         let ws = NSWorkspace.shared.notificationCenter
@@ -99,6 +123,11 @@ final class UnlockAgent {
             let r = readiness
             if r != lastLoggedReadiness { Log.info("not scanning — readiness: \(r)") }
             lastLoggedReadiness = r
+            skippedThisLock = r
+            if let text = r.notice, !toldThisLock {
+                toldThisLock = true
+                Task { await NotchController.shared.showNotice(text) }
+            }
             return
         }
         Log.info("scanning for face…")
