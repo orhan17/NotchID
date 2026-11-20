@@ -183,7 +183,10 @@ enum SkyLight {
 
     private static let handle = dlopen("/System/Library/PrivateFrameworks/SkyLight.framework/Versions/A/SkyLight", RTLD_NOW)
     private static func fn<T>(_ name: String, as: T.Type) -> T? {
-        guard let handle, let sym = dlsym(handle, name) else { return nil }
+        guard let handle, let sym = dlsym(handle, name) else {
+            Log.info("SkyLight: missing symbol \(name)")
+            return nil
+        }
         return unsafeBitCast(sym, to: T.self)
     }
 
@@ -194,13 +197,17 @@ enum SkyLight {
               let show = fn("SLSShowSpaces", as: ShowSpaces.self) else { return nil }
         let conn = main()
         let id = create(conn, 1, 0)
-        _ = level(conn, id, 100)
-        _ = show(conn, [id] as CFArray)
+        // 300 = lock screen, 400 = notifications shown above the lock screen.
+        let e1 = level(conn, id, 400)
+        let e2 = show(conn, [id] as CFArray)
+        Log.info("SkyLight: connection \(conn), space \(id), setLevel err \(e1), show err \(e2)")
         return (conn, id)
     }()
 
+    /// Safe to call repeatedly (e.g. before every animation).
     static func showOnLockScreen(_ window: NSWindow) {
         guard let space, let add = fn("SLSSpaceAddWindowsAndRemoveFromSpaces", as: AddWindows.self) else { return }
-        _ = add(space.conn, space.id, [window.windowNumber] as CFArray, 7)
+        let err = add(space.conn, space.id, [window.windowNumber] as CFArray, 7)
+        Log.info("SkyLight: moved window \(window.windowNumber) to lock-screen space (err \(err), visible \(window.isVisible))")
     }
 }

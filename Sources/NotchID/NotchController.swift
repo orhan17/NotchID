@@ -70,10 +70,9 @@ final class NotchController {
         }
         panel.position(on: screen)
         panel.orderFrontRegardless()
-        if !installed {
-            installed = true
-            SkyLight.showOnLockScreen(panel)
-        }
+        // Re-assert every time: macOS can move the window out of the space when the screen locks.
+        SkyLight.showOnLockScreen(panel)
+        installed = true
     }
 
     /// avatar → Face ID scan (until `verify` returns) → ✓ → `afterRecognized` → "Welcome back" → collapse.
