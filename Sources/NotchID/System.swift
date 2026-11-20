@@ -96,6 +96,7 @@ enum Accessibility {
 
 // MARK: - Typing into the lock screen
 
+@MainActor
 enum KeyTyper {
     private static let kReturn: CGKeyCode = 36, kDelete: CGKeyCode = 51, kA: CGKeyCode = 0, kShift: CGKeyCode = 56
 
