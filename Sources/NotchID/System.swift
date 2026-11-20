@@ -1,3 +1,4 @@
+import ApplicationServices
 import AppKit
 import Carbon
 import OpenDirectory
@@ -80,9 +81,14 @@ enum MacSession {
 // MARK: - Accessibility permission (needed to type the password into the lock screen)
 
 enum Accessibility {
-    static var granted: Bool { CGPreflightPostEventAccess() }
+    /// AXIsProcessTrusted reflects changes live; CGPreflightPostEventAccess can be stale until relaunch.
+    static var granted: Bool { AXIsProcessTrusted() || CGPreflightPostEventAccess() }
+
     static func request() {
-        if !CGRequestPostEventAccess() {
+        // Adds NotchID to System Settings → Privacy & Security → Accessibility and shows the system prompt.
+        let opts = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
+        if !AXIsProcessTrustedWithOptions(opts) {
+            _ = CGRequestPostEventAccess()
             NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!)
         }
     }

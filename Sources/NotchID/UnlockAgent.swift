@@ -12,6 +12,7 @@ final class UnlockAgent {
     private var displayAsleep = false
     private var submitting = false
     private(set) var locked = MacSession.isLocked
+    private var lastLoggedReadiness: Readiness?
 
     enum Readiness { case ready, notEnrolled, noPassword, noCamera, noAccessibility, disabled }
 
@@ -19,18 +20,20 @@ final class UnlockAgent {
         let store = Store.shared
         if !store.unlockEnabled { return .disabled }
         if !store.isEnrolled { return .notEnrolled }
-        if !store.hasPassword { return .noPassword }
+        if store.cachedPassword == nil { return .noPassword }
         if !FaceEngine.cameraAuthorized { return .noCamera }
         if !Accessibility.granted { return .noAccessibility }
         return .ready
     }
 
     func start() {
+        Log.info("started — readiness: \(readiness), locked: \(locked)")
         let dnc = DistributedNotificationCenter.default()
         dnc.addObserver(forName: .init("com.apple.screenIsLocked"), object: nil, queue: .main) { _ in
             Task { @MainActor in
                 let me = UnlockAgent.shared
                 me.locked = true
+                Log.info("screen locked (displayAsleep: \(me.displayAsleep))")
                 try? await Task.sleep(for: .seconds(0.8))
                 if me.locked && !me.displayAsleep { me.trigger() }
             }
@@ -39,6 +42,7 @@ final class UnlockAgent {
             Task { @MainActor in
                 let me = UnlockAgent.shared
                 me.locked = false
+                Log.info("screen unlocked (by NotchID: \(me.submitting))")
                 if !me.submitting { me.cancel() } // unlocked by hand → stop scanning
             }
         }
@@ -48,14 +52,22 @@ final class UnlockAgent {
                 let me = UnlockAgent.shared
                 me.displayAsleep = false
                 me.locked = MacSession.isLocked
+                Log.info("display woke (locked: \(me.locked))")
                 if me.locked { me.trigger() }
             }
         }
         for name in [NSWorkspace.screensDidSleepNotification, NSWorkspace.willSleepNotification] {
             ws.addObserver(forName: name, object: nil, queue: .main) { _ in
                 Task { @MainActor in
-                    UnlockAgent.shared.displayAsleep = true
-                    UnlockAgent.shared.cancel()
+                    let me = UnlockAgent.shared
+                    me.displayAsleep = true
+                    me.cancel()
+                    Log.info("\(name.rawValue)")
+                    // Lid closed / Mac sleeping → lock right away, so Face ID is what opens it again.
+                    if Store.shared.lockOnSleep && !MacSession.isLocked {
+                        Log.info("locking because the Mac is going to sleep")
+                        MacSession.lockNow()
+                    }
                 }
             }
         }
@@ -63,6 +75,7 @@ final class UnlockAgent {
         poll = Timer.scheduledTimer(withTimeInterval: 0.7, repeats: true) { _ in
             Task { @MainActor in
                 let me = UnlockAgent.shared
+                if !me.locked && MacSession.isLocked { me.locked = true } // missed notification
                 guard me.locked, !me.displayAsleep, me.attempt == nil,
                       Date().timeIntervalSince(me.lastAttemptEnd) > 2.5,
                       MacSession.secondsSinceAnyInput < 1.0 else { return }
@@ -76,8 +89,14 @@ final class UnlockAgent {
     }
 
     func trigger() {
-        guard attempt == nil, readiness == .ready, !NotchController.shared.isRunning,
-              let password = Keychain.read() else { return }
+        guard attempt == nil, !NotchController.shared.isRunning else { return }
+        guard readiness == .ready, let password = Store.shared.cachedPassword else {
+            let r = readiness
+            if r != lastLoggedReadiness { Log.info("not scanning — readiness: \(r)") }
+            lastLoggedReadiness = r
+            return
+        }
+        Log.info("scanning for face…")
         attempt = Task {
             await run(password: password)
             FaceEngine.shared.stop()
@@ -94,8 +113,12 @@ final class UnlockAgent {
         await NotchController.shared.run(verify: {
             let deadline = Date().addingTimeInterval(12)
             while !Task.isCancelled && Date() < deadline {
-                switch await FaceEngine.shared.verify(prints: prints, threshold: threshold,
-                                                      requireBlink: blink, timeout: 4) {
+                let r = await FaceEngine.shared.verify(prints: prints, threshold: threshold,
+                                                       requireBlink: blink, timeout: 4) { u in
+                    if case .distance(let d) = u { Log.info(String(format: "  face difference %.3f (limit %.3f)", d, threshold)) }
+                }
+                Log.info("verify result: \(r)")
+                switch r {
                 case .matched: return true
                 case .cancelled: return false
                 case .noFace: continue
@@ -123,11 +146,13 @@ final class UnlockAgent {
 
             self.submitting = true
             defer { self.submitting = false }
+            Log.info("typing password (accessibility: \(Accessibility.granted))")
             await KeyTyper.submitPassword(password)
             // Wait for macOS to confirm.
             for _ in 0..<30 where self.locked {
                 try? await Task.sleep(for: .milliseconds(100))
             }
+            Log.info(self.locked ? "still locked after typing password" : "unlocked ✓")
             return !self.locked
         })
     }

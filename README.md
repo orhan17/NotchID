@@ -76,9 +76,10 @@ placeholder face and a made-up name.*
 - **Private API.** Showing the notch on the lock screen uses private SkyLight calls. A macOS update
   could break it. If the API is missing, NotchID still unlocks, but the animation may not be visible
   on the lock screen.
-- **Ad-hoc signing.** `build.sh` signs the app ad hoc. macOS ties Accessibility and Keychain access
-  to the signature, so **after every rebuild** you may have to allow Accessibility again and approve
-  Keychain access again.
+- **Local signing.** `build.sh` creates a self-signed code-signing identity in its own keychain
+  (`scripts/make-signing-identity.sh`, the key never leaves your Mac) so Accessibility, Camera and
+  Keychain approvals survive rebuilds. If that fails it falls back to ad-hoc signing, and then you
+  have to re-allow Accessibility after every rebuild.
 - The camera has to see you. It works poorly in very dark rooms or with the lid nearly closed.
 
 ## Requirements
@@ -92,7 +93,7 @@ placeholder face and a made-up name.*
 ```bash
 git clone <your-fork-url> NotchID
 cd NotchID
-./build.sh                       # builds build/NotchID.app (release, ad-hoc signed)
+./build.sh                       # builds build/NotchID.app (release, signed with a local identity)
 cp -R build/NotchID.app /Applications/
 open /Applications/NotchID.app
 ```
@@ -154,8 +155,8 @@ To remove everything: choose *Remove* next to the password in Settings (or delet
 
 | Problem | Try this |
 | --- | --- |
-| Recognised, but the Mac doesn't unlock | Check Accessibility in *Settings → Permissions*. After a rebuild, remove NotchID from the Accessibility list and add it again (ad-hoc signature changed). |
-| macOS keeps asking for Keychain access | Expected after each rebuild. Choose *Always Allow*. |
+| Recognised, but the Mac doesn't unlock | Check Accessibility in *Settings → Permissions*. If it was granted to an older build, run `tccutil reset Accessibility app.notchid.NotchID` and allow it again. `~/Library/Logs/NotchID.log` shows each step. |
+| macOS asks for Keychain access | Choose *Always Allow* once. NotchID reads the password at launch so the Lock Screen never prompts. |
 | "That isn't your Mac login password" | Use the password for your macOS user account, not your Apple Account password. |
 | Doesn't recognise me | Re-enrol in the light you normally use, use *Test recognition*, and move *Strictness* toward *Loose*. Take off sunglasses. |
 | Recognises someone else | Move *Strictness* toward *Strict* and turn on *Require a blink*. |

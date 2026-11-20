@@ -17,6 +17,9 @@ final class Store: ObservableObject {
     @Published var requireBlink: Bool { didSet { defaults.set(requireBlink, forKey: "requireBlink") } }
     @Published var unlockEnabled: Bool { didSet { defaults.set(unlockEnabled, forKey: "unlockEnabled") } }
     @Published var afterUnlock: AfterUnlock { didSet { defaults.set(afterUnlock.rawValue, forKey: "afterUnlock") } }
+    @Published var lockOnSleep: Bool { didSet { defaults.set(lockOnSleep, forKey: "lockOnSleep") } }
+    /// Read once while the user is logged in, so the Lock Screen never has to show a Keychain prompt.
+    private(set) var cachedPassword: String?
     @Published private(set) var prints: [VNFeaturePrintObservation] = []
     @Published private(set) var avatar: NSImage?
     @Published private(set) var hasPassword: Bool
@@ -39,6 +42,7 @@ final class Store: ObservableObject {
         requireBlink = defaults.bool(forKey: "requireBlink")
         unlockEnabled = defaults.object(forKey: "unlockEnabled") as? Bool ?? true
         afterUnlock = AfterUnlock(rawValue: defaults.string(forKey: "afterUnlock") ?? "") ?? .openDesktop
+        lockOnSleep = defaults.object(forKey: "lockOnSleep") as? Bool ?? true
         hasPassword = Keychain.hasPassword
         // Feature prints archive nested dictionaries/values (e.g. timeRange), so those classes must be allowed.
         if let data = try? Data(contentsOf: printsURL),
@@ -49,6 +53,7 @@ final class Store: ObservableObject {
             prints = arr
         }
         avatar = NSImage(contentsOf: avatarURL)
+        if hasPassword { cachedPassword = Keychain.read() }
     }
 
     func saveEnrollment(prints: [VNFeaturePrintObservation], threshold: Double, avatar cg: CGImage?) {
@@ -74,11 +79,13 @@ final class Store: ObservableObject {
     func savePassword(_ password: String) -> Bool {
         guard Keychain.verifyLoginPassword(password), Keychain.save(password) else { return false }
         hasPassword = true
+        cachedPassword = password
         return true
     }
 
     func forgetPassword() {
         Keychain.delete()
         hasPassword = false
+        cachedPassword = nil
     }
 }

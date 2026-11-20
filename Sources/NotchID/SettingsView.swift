@@ -53,6 +53,7 @@ struct SettingsView: View {
                     Text("Stay on Lock Screen until I press a key or swipe").tag(AfterUnlock.stayOnLockScreen)
                 }
                 .pickerStyle(.radioGroup)
+                Toggle("Lock when I close the lid or the Mac sleeps", isOn: $store.lockOnSleep)
                 Toggle("Require a blink (stops photos from unlocking)", isOn: $store.requireBlink)
                 LabeledContent("Strictness") {
                     HStack {
