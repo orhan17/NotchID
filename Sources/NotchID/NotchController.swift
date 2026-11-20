@@ -112,6 +112,18 @@ final class NotchController {
         return ok
     }
 
+    /// Says why no scan ran, for a few seconds.
+    func showNotice(_ text: String) async {
+        guard !isRunning else { return }
+        isRunning = true
+        defer { isRunning = false }
+        install()
+        model.phase = .notice(text)
+        await pause(3.5)
+        if case .notice = model.phase { model.phase = .closed }
+        await pause(0.6)
+    }
+
     /// Short red shake while scanning continues (wrong face).
     func flashFailure() async {
         guard model.phase == .scanning else { return }

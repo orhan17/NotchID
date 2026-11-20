@@ -51,7 +51,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         case .ready: status = "Face ID unlock is on"
         case .disabled: status = "Face ID unlock is off"
         case .notEnrolled: status = "Face ID is not set up"
-        default: status = "Finish setup in Settings"
+        default: status = UnlockAgent.shared.readiness.notice ?? "Finish setup in Settings"
         }
         let header = NSMenuItem(title: status, action: nil, keyEquivalent: "")
         header.isEnabled = false
@@ -138,7 +138,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
 @MainActor
 func renderPhases(to dir: String) {
     let phases: [(String, NotchModel.Phase)] = [("1-avatar", .avatar), ("2-scanning", .scanning),
-        ("3-success", .success), ("4-failed", .failed), ("5-unlocked", .unlocked), ("6-welcome", .welcome)]
+        ("3-success", .success), ("4-failed", .failed), ("5-unlocked", .unlocked), ("6-welcome", .welcome),
+        ("7-notice", .notice(UnlockAgent.Readiness.noPassword.notice ?? ""))]
     for (name, phase) in phases {
         let model = NotchModel()
         model.name = Store.shared.name

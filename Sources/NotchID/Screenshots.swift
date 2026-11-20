@@ -298,6 +298,8 @@ struct ShotNotch: View {
                     .fixedSize()
             }
             .padding(.bottom, 4)
+        case .notice(let text):
+            NoticeView(text: text)
         case .welcome:
             (Text("Welcome back, ").foregroundColor(Palette.lavender) + Text(Shot.name).foregroundColor(Palette.pink))
                 .font(Font(NotchModel.welcomeFont))

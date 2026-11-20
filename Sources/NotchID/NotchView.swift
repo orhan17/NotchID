@@ -15,7 +15,7 @@ enum Palette {
 
 @MainActor
 final class NotchModel: ObservableObject {
-    enum Phase: Equatable { case closed, avatar, scanning, success, failed, unlocked, welcome }
+    enum Phase: Equatable { case closed, avatar, scanning, success, failed, unlocked, welcome, notice(String) }
 
     @Published var phase: Phase = .closed
     @Published var name = ""
@@ -32,6 +32,11 @@ final class NotchModel: ObservableObject {
         ceil(NSAttributedString(string: hint, attributes: [.font: hintFont]).size().width)
     }
 
+    static let noticeFont = NSFont.systemFont(ofSize: 14, weight: .medium)
+    static func noticeWidth(_ text: String) -> CGFloat {
+        ceil(NSAttributedString(string: text, attributes: [.font: noticeFont]).size().width)
+    }
+
     var welcomeTextWidth: CGFloat {
         ceil(NSAttributedString(string: "Welcome back, \(name)", attributes: [.font: Self.welcomeFont]).size().width)
     }
@@ -42,6 +47,7 @@ final class NotchModel: ObservableObject {
         case .closed: return notch
         case .welcome: return CGSize(width: max(notch.width + 120, welcomeTextWidth + 72), height: notch.height + 54)
         case .unlocked: return CGSize(width: max(notch.width + 120, Self.hintWidth + 84), height: notch.height + 54)
+        case .notice(let text): return CGSize(width: max(notch.width + 120, Self.noticeWidth(text) + 84), height: notch.height + 54)
         default: return CGSize(width: notch.width + 96, height: notch.height + 76)
         }
     }
@@ -49,7 +55,7 @@ final class NotchModel: ObservableObject {
     var bottomRadius: CGFloat {
         switch phase {
         case .closed: return 10
-        case .welcome, .unlocked: return 26
+        case .welcome, .unlocked, .notice: return 26
         default: return 30
         }
     }
@@ -149,6 +155,9 @@ struct NotchView: View {
                 }
                 .padding(.bottom, 4)
                 .transition(.blurReplace.combined(with: ScaleTransition(0.85)))
+            case .notice(let text):
+                NoticeView(text: text)
+                    .transition(.blurReplace.combined(with: ScaleTransition(0.85)))
             case .welcome:
                 (Text("Welcome back, ").foregroundColor(Palette.lavender)
                  + Text(model.name).foregroundColor(Palette.pink))
@@ -163,6 +172,22 @@ struct NotchView: View {
 }
 
 // MARK: - Pieces
+
+/// Why Face ID did not run: a still glyph and one line.
+struct NoticeView: View {
+    var text: String
+    var body: some View {
+        HStack(spacing: 10) {
+            FaceIDGlyph(color: Palette.orange, animate: false)
+                .frame(width: 22, height: 22)
+            Text(text)
+                .font(Font(NotchModel.noticeFont))
+                .foregroundColor(Palette.lavender)
+                .fixedSize()
+        }
+        .padding(.bottom, 4)
+    }
+}
 
 struct AvatarView: View {
     var image: NSImage?
