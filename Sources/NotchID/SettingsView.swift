@@ -53,6 +53,10 @@ struct SettingsView: View {
                     Text("Stay on Lock Screen until I press a key or swipe").tag(AfterUnlock.stayOnLockScreen)
                 }
                 .pickerStyle(.radioGroup)
+                if !SkyLight.worksOnLockScreen {
+                    Text("This version of macOS doesn't let apps draw on the Lock Screen, so the scan runs out of sight and NotchID plays the animation as soon as you're unlocked.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
                 Toggle("Lock when I close the lid or the Mac sleeps", isOn: $store.lockOnSleep)
                 Toggle("Require a blink (stops photos from unlocking)", isOn: $store.requireBlink)
                 LabeledContent("Strictness") {
