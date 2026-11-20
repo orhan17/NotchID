@@ -158,6 +158,20 @@ The menu shows whether unlocking is ready. If something is missing, *Settings* t
 
 The menu also has **Play Unlock Animation** to preview the notch, and **Set Up Face ID…** to enrol again.
 
+## For other notch apps
+
+NotchID posts two distributed notifications around every animation, so an app that also draws in
+the notch can keep out of the way:
+
+```swift
+let center = DistributedNotificationCenter.default()
+center.addObserver(forName: .init("app.notchid.notch.began"), object: nil, queue: .main) { _ in /* step aside */ }
+center.addObserver(forName: .init("app.notchid.notch.ended"), object: nil, queue: .main) { _ in /* come back */ }
+```
+
+Every `began` is followed by an `ended`. An animation usually lasts a few seconds; on the lock
+screen it runs as long as the camera looks for you.
+
 ## Privacy
 
 - Face data never leaves your Mac. NotchID makes no network requests.

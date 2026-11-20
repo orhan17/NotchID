@@ -43,6 +43,18 @@ final class NotchPanel: NSPanel {
     }
 }
 
+/// Tells other apps that draw in the notch when NotchID is using it, so they can step aside
+/// instead of drawing over or under the animation.
+enum NotchActivity {
+    static let began = Notification.Name("app.notchid.notch.began")
+    static let ended = Notification.Name("app.notchid.notch.ended")
+
+    static func post(_ name: Notification.Name) {
+        DistributedNotificationCenter.default()
+            .postNotificationName(name, object: nil, userInfo: nil, deliverImmediately: true)
+    }
+}
+
 /// Drives the Dynamic-Island-style unlock sequence in the notch. The panel lives permanently in a
 /// lock-screen-level space (transparent while idle), so it also shows on top of the macOS lock screen.
 @MainActor
@@ -82,7 +94,11 @@ final class NotchController {
              afterRecognized: (@MainActor () async -> Bool)? = nil) async -> Bool {
         guard !isRunning else { return false }
         isRunning = true
-        defer { isRunning = false }
+        NotchActivity.post(NotchActivity.began)
+        defer {
+            isRunning = false
+            NotchActivity.post(NotchActivity.ended)
+        }
 
         install()
         model.name = Store.shared.name
