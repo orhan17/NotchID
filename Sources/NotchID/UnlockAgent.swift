@@ -194,6 +194,6 @@ final class UnlockAgent {
             }
             Log.info(self.locked ? "still locked after typing password" : "unlocked ✓")
             return !self.locked
-        })
+        }, replayAfterUnlock: !SkyLight.worksOnLockScreen)
     }
 }

@@ -73,9 +73,9 @@ placeholder face and a made-up name.*
   it stores. It is kept in your Keychain, but it is still your password.
 - **FileVault and the boot screen aren't covered.** NotchID only runs after you've logged in, so
   you still type your password after a restart.
-- **Private API.** Showing the notch on the lock screen uses private SkyLight calls. A macOS update
-  could break it. If the API is missing, NotchID still unlocks, but the animation may not be visible
-  on the lock screen.
+- **Private API.** Showing the notch on the lock screen uses private SkyLight calls. macOS 27 refuses
+  them to ordinary apps, so there the scan runs out of sight and the animation plays right after you're
+  unlocked. Unlocking itself works either way.
 - **Local signing.** `build.sh` creates a self-signed code-signing identity in its own keychain
   (`scripts/sign.sh`, the key never leaves your Mac) so Accessibility, Camera and Keychain approvals
   survive rebuilds. Whoever can use that identity can sign a program that passes for NotchID and
@@ -202,7 +202,7 @@ To remove everything: choose *Remove* next to the password in Settings (or delet
 | "That isn't your Mac login password" | Use the password for your macOS user account, not your Apple Account password. |
 | Doesn't recognise me | Re-enrol in the light you normally use, use *Test recognition*, and move *Strictness* toward *Loose*. Take off sunglasses. |
 | Recognises someone else | Move *Strictness* toward *Strict* and turn on *Require a blink*. |
-| No animation on the lock screen | The private SkyLight API may have changed in your macOS version. Unlocking still works. |
+| No animation on the lock screen | macOS 27 doesn't let apps draw over the lock screen ([#8](https://github.com/samirmhsnv/NotchID/issues/8)). Unlocking still works, and NotchID plays the animation as soon as you're unlocked. *Settings* says when this applies. |
 | Camera light stays on | It turns off when the scan ends (at most about 12 s). Quit NotchID if it doesn't. |
 | Nothing happens on lock | The menu must say *Face ID unlock is on*. Otherwise open *Settings* to see what's missing. |
 

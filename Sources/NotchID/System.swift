@@ -184,7 +184,14 @@ enum KeyTyper {
 
 /// Moves a window into a private high-level space so it stays visible on the macOS lock screen
 /// (the same technique notch utilities use). Silently does nothing if the private API is missing.
+/// macOS 27 refuses SLSShowSpaces and SLSSpaceAddWindowsAndRemoveFromSpaces (error 3) to ordinary
+/// apps, and no window level reaches above the lock screen either, so `worksOnLockScreen` turns false
+/// and NotchID plays the animation right after unlocking instead (issue #8).
 enum SkyLight {
+    private static var refused = false
+    /// False when the private API is missing or macOS refused it.
+    static var worksOnLockScreen: Bool { space != nil && !refused }
+
     private typealias MainConnection = @convention(c) () -> Int32
     private typealias SpaceCreate = @convention(c) (Int32, Int32, Int32) -> Int32
     private typealias SpaceSetAbsoluteLevel = @convention(c) (Int32, Int32, Int32) -> Int32
@@ -211,6 +218,7 @@ enum SkyLight {
         let e1 = level(conn, id, 400)
         let e2 = show(conn, [id] as CFArray)
         Log.info("SkyLight: connection \(conn), space \(id), setLevel err \(e1), show err \(e2)")
+        if e1 != 0 || e2 != 0 { refused = true }
         return (conn, id)
     }()
 
@@ -218,6 +226,7 @@ enum SkyLight {
     static func showOnLockScreen(_ window: NSWindow) {
         guard let space, let add = fn("SLSSpaceAddWindowsAndRemoveFromSpaces", as: AddWindows.self) else { return }
         let err = add(space.conn, space.id, [window.windowNumber] as CFArray, 7)
+        if err != 0 { refused = true }
         Log.info("SkyLight: moved window \(window.windowNumber) to lock-screen space (err \(err), visible \(window.isVisible))")
     }
 }

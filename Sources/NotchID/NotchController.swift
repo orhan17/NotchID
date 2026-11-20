@@ -89,9 +89,11 @@ final class NotchController {
 
     /// avatar → Face ID scan (until `verify` returns) → ✓ → `afterRecognized` → "Welcome back" → collapse.
     /// `afterRecognized` returns false if unlocking didn't complete (shows the failure shake instead).
+    /// `replayAfterUnlock`: the lock screen hid the scan, so play avatar → ✓ again once the desktop shows.
     @discardableResult
     func run(verify: @escaping @MainActor () async -> Bool,
-             afterRecognized: (@MainActor () async -> Bool)? = nil) async -> Bool {
+             afterRecognized: (@MainActor () async -> Bool)? = nil,
+             replayAfterUnlock: Bool = false) async -> Bool {
         guard !isRunning else { return false }
         isRunning = true
         NotchActivity.post(NotchActivity.began)
@@ -114,6 +116,12 @@ final class NotchController {
             model.phase = .success
             await pause(0.8)
             if let afterRecognized { ok = await afterRecognized() }
+            if ok && replayAfterUnlock {
+                model.phase = .avatar
+                await pause(0.7)
+                model.phase = .success
+                await pause(0.9)
+            }
         }
         if ok {
             model.phase = .welcome
